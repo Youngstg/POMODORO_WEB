@@ -11,7 +11,7 @@ body {
 .container {
     background-color: #d0d0d0;
     border-radius: 10px;
-    padding: 20px;
+    padding: 30px;
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
     text-align: center;
     width: 320px;
@@ -23,7 +23,7 @@ body {
     border: 4px solid #333;
     border-radius: 10px;
     height: 160px; /* Tambahkan tinggi sesuai keinginan Anda */
-    margin-bottom: 50px; /* Tambahkan margin bawah untuk memberikan jarak lebih besar */
+    margin-bottom: 40px; /* Tambahkan margin bawah untuk memberikan jarak lebih besar */
 
     display: flex; /* Menggunakan flexbox */
     flex-direction: column; /* Susun elemen secara vertikal */
@@ -90,12 +90,18 @@ body {
     display: flex;
     flex-direction: column;
     align-items: center;
-    background-color: #87a3a3; /* Warna tombol mirip pada gambar kedua */
+    background-color: #87a3a3;
     padding: 10px;
     border-radius: 6px;
-    border: 5px solid rgb(74, 64, 64); /* Tambahkan garis hitam */
+    border: 5px solid rgb(74, 64, 64);
     box-shadow: inset 0 2px 3px rgba(0,0,0,0.2);
 }
+
+.break-length label, .session-length label {
+    margin-bottom: 8px; /* Tambahkan jarak antara label dan tombol */
+    font-weight: bold;
+}
+
 
 .adjust {
     display: flex;
