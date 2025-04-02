@@ -1,6 +1,7 @@
+// Option 1: Using Date objects to track time instead of counting seconds
 let sessionLength = 25;
 let breakLength = 5;
-let timeLeft = sessionLength * 60;
+let endTime; // Will store the target end time
 let timerInterval;
 let isRunning = false;
 let isBreakTime = false;
@@ -25,7 +26,37 @@ function formatTime(seconds) {
 }
 
 function updateDisplay() {
-    displayElement.textContent = formatTime(timeLeft);
+    if (isRunning) {
+        // Calculate time left based on current time and end time
+        const currentTime = new Date().getTime();
+        const secondsLeft = Math.max(0, Math.floor((endTime - currentTime) / 1000));
+        
+        displayElement.textContent = formatTime(secondsLeft);
+        
+        // Check if timer has ended
+        if (secondsLeft === 0) {
+            handleTimerEnd();
+        }
+    } else {
+        // When not running, display the set time
+        const timeToShow = isBreakTime ? breakLength * 60 : sessionLength * 60;
+        displayElement.textContent = formatTime(timeToShow);
+    }
+}
+
+function handleTimerEnd() {
+    clearInterval(timerInterval);
+    playAlarmSound();
+    
+    if (!isBreakTime) {
+        // Switch to break time
+        isBreakTime = true;
+        startTimer(); // Start break timer automatically
+    } else {
+        // Reset to session time
+        isBreakTime = false;
+        isRunning = false;
+    }
 }
 
 function playAlarmSound() {
@@ -42,76 +73,180 @@ function stopAlarmSound() {
 function startTimer() {
     if (!isRunning) {
         isRunning = true;
-        timerInterval = setInterval(() => {
-            if (timeLeft > 0) {
-                timeLeft--;
-                updateDisplay();
-            } else {
-                clearInterval(timerInterval);
-                playAlarmSound();
-                
-                if (!isBreakTime) {
-                    // Switch to break time automatically
-                    isBreakTime = true;
-                    timeLeft = breakLength * 60;
-                    updateDisplay();
-                    startTimer(); // Automatically start break timer
-                } else {
-                    // Reset to session time
-                    isBreakTime = false;
-                    timeLeft = sessionLength * 60;
-                    updateDisplay();
-                    isRunning = false;
-                }
-            }
-        }, 1000);
+        
+        // Set the end time based on current time plus duration
+        const duration = (isBreakTime ? breakLength : sessionLength) * 60 * 1000; // in milliseconds
+        endTime = new Date().getTime() + duration;
+        
+        // Store end time in localStorage to recover after page refresh
+        localStorage.setItem('pomodoroEndTime', endTime);
+        localStorage.setItem('pomodoroIsBreakTime', isBreakTime);
+        localStorage.setItem('pomodoroIsRunning', true);
+        
+        // Update display more frequently to ensure accuracy
+        timerInterval = setInterval(updateDisplay, 100);
+        updateDisplay(); // Update immediately
+        
+        // Add visibilitychange listener to handle tab switching
+        document.addEventListener('visibilitychange', handleVisibilityChange);
     } else {
-        clearInterval(timerInterval);
-        isRunning = false;
+        pauseTimer();
     }
+}
+
+function pauseTimer() {
+    clearInterval(timerInterval);
+    isRunning = false;
+    localStorage.setItem('pomodoroIsRunning', false);
+    document.removeEventListener('visibilitychange', handleVisibilityChange);
 }
 
 function resetTimer() {
     clearInterval(timerInterval);
     isRunning = false;
     isBreakTime = false;
-    timeLeft = sessionLength * 60;
+    localStorage.removeItem('pomodoroEndTime');
+    localStorage.removeItem('pomodoroIsBreakTime');
+    localStorage.removeItem('pomodoroIsRunning');
+    document.removeEventListener('visibilitychange', handleVisibilityChange);
     updateDisplay();
+}
+
+function handleVisibilityChange() {
+    if (document.visibilityState === 'visible') {
+        // When tab becomes visible again, recalculate and adjust display
+        updateDisplay();
+    }
+}
+
+// Check if there was a timer running when page was reloaded
+function recoverTimerState() {
+    const savedEndTime = localStorage.getItem('pomodoroEndTime');
+    const savedIsBreakTime = localStorage.getItem('pomodoroIsBreakTime') === 'true';
+    const savedIsRunning = localStorage.getItem('pomodoroIsRunning') === 'true';
+    
+    if (savedEndTime && savedIsRunning) {
+        endTime = parseInt(savedEndTime);
+        isBreakTime = savedIsBreakTime;
+        isRunning = true;
+        
+        // Check if timer has already ended
+        const currentTime = new Date().getTime();
+        if (endTime > currentTime) {
+            timerInterval = setInterval(updateDisplay, 100);
+            document.addEventListener('visibilitychange', handleVisibilityChange);
+        } else {
+            handleTimerEnd();
+        }
+    }
 }
 
 // Adjust Break Length
 breakMinus.addEventListener('click', () => {
-    if (breakLength > 1) {
+    if (!isRunning && breakLength > 1) {
         breakLength--;
         breakValue.textContent = breakLength;
+        if (isBreakTime) {
+            updateDisplay();
+        }
     }
 });
 
 breakPlus.addEventListener('click', () => {
-    breakLength++;
-    breakValue.textContent = breakLength;
+    if (!isRunning) {
+        breakLength++;
+        breakValue.textContent = breakLength;
+        if (isBreakTime) {
+            updateDisplay();
+        }
+    }
 });
 
 // Adjust Session Length
 sessionMinus.addEventListener('click', () => {
-    if (sessionLength > 1) {
+    if (!isRunning && sessionLength > 1) {
         sessionLength--;
         sessionValue.textContent = sessionLength;
-        timeLeft = sessionLength * 60;
-        updateDisplay();
+        if (!isBreakTime) {
+            updateDisplay();
+        }
     }
 });
 
 sessionPlus.addEventListener('click', () => {
-    sessionLength++;
-    sessionValue.textContent = sessionLength;
-    timeLeft = sessionLength * 60;
-    updateDisplay();
+    if (!isRunning) {
+        sessionLength++;
+        sessionValue.textContent = sessionLength;
+        if (!isBreakTime) {
+            updateDisplay();
+        }
+    }
 });
 
 startBtn.addEventListener('click', startTimer);
 resetBtn.addEventListener('click', resetTimer);
 stopSoundBtn.addEventListener('click', stopAlarmSound);
 
-// Initial display
+// Initial setup
 updateDisplay();
+recoverTimerState(); // Recover timer state if page was reloaded
+
+// Option 2: Using a Service Worker (add this in a separate file named 'service-worker.js')
+// Note: This is not a complete implementation, just to showcase the approach
+/*
+// service-worker.js
+self.addEventListener('install', (event) => {
+  self.skipWaiting();
+});
+
+self.addEventListener('activate', (event) => {
+  clients.claim();
+});
+
+let timers = {};
+
+self.addEventListener('message', (event) => {
+  const data = event.data;
+  
+  if (data.action === 'startTimer') {
+    const timerId = data.id;
+    const duration = data.duration;
+    const endTime = Date.now() + duration;
+    
+    timers[timerId] = {
+      endTime: endTime,
+      clientId: event.source.id
+    };
+    
+    checkTimer(timerId);
+  }
+  
+  if (data.action === 'stopTimer') {
+    delete timers[data.id];
+  }
+});
+
+function checkTimer(timerId) {
+  const timer = timers[timerId];
+  if (!timer) return;
+  
+  const timeLeft = timer.endTime - Date.now();
+  
+  if (timeLeft <= 0) {
+    // Timer finished
+    self.clients.matchAll().then(clients => {
+      clients.forEach(client => {
+        client.postMessage({
+          action: 'timerComplete',
+          id: timerId
+        });
+      });
+    });
+    
+    delete timers[timerId];
+  } else {
+    // Check again in 1 second
+    setTimeout(() => checkTimer(timerId), 1000);
+  }
+}
+*/
